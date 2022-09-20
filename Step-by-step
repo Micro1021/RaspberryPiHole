@@ -1,4 +1,4 @@
-Raspberry Pi 4B running PiHole & unbound over an ubuntu server 22.04.5 LTS:
+Raspberry Pi 4B running PiHole & unbound over an Ubuntu server 22.04.5 LTS:
 --
 What hardware you need: An ethernet cable (if you choose to opt out of wireless), an internet connection, a raspberry pi (in this case a Raspberry Pi 4 Model B is being used), power cable (to power the pi), microSD card and a SD card reader
 
