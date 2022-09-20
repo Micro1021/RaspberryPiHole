@@ -1,0 +1,169 @@
+Raspberry Pi 4B running PiHole & unbound over an ubuntu server 22.04.5 LTS:
+--
+What hardware you need: An ethernet cable (if you choose to opt out of wireless), an internet connection, a raspberry pi (in this case a Raspberry Pi 4 Model B is being used), power cable (to power the pi), microSD card and a SD card reader
+
+(Most of the hardware besides the ethernet cable will be included in a starter kit. This should include the SD card and card reader, power cable)
+
+Download raspberry pi imager to your computer
+
+Once downloaded, boot up the imaging tool and insert the microSD card into your computer
+
+The tool should recognize you have a microSD card inserted, choose this card as your "Storage" in the imager
+
+The OS is up to you and will be related to what pi you have, but I chose to run an Ubuntu Server (22.04.1 LTS) 
+
+If you choose to run Ubuntu, click "Other general-purpose OS" and pick your Ubuntu version
+
+After clicking out of this window, hit "CTRL + SHIFT + X" 
+
+This will bring up a window to further format your OS, choose user/password, SSID and password
+
+You want to enable SSH here, set a hostname, user and password for your pi, and configure your wireless LAN if you choose to do this route. 
+
+This window in RP-imager gives you the ability to change your "network-config" through a user interface, rather than manually changing it through file editing.  
+
+After you complete your configuration, write this to your SD card (this may take a few minutes)
+
+If you didn't enable SSH in the settings window and left everything default, you will want to do this before your FIRST boot. If you try to boot up, then enable SSH, you will notice that the SSH port is closed. 
+
+To enable SSH manually, find your boot file (it should be called "system-boot" in windows, you can find this through file explorer) 
+
+Right click in the white space and create a new text file. Label this file "ssh" and make sure to remove the ".txt" extension. You should see a blank file named ssh. This tells your Pi to enable ssh once it reads over this blank file. 
+
+Now you are ready to boot up
+
+Take your SD card out and insert it into your RaspberryPi and boot it up.
+
+What we need to do now is find your RP's IP address so we can remote into it through secure shell (SSH).
+
+You will need a way to access and view the devices connected to your home router you.
+
+Once you are in the router interface, look for your the device name you set, or look for a device you do not recognize on your network.
+
+-
+*These are troubleshooting steps if you cannot find an IP address via WiFi for your pi, skip this portion of the guide if you HAVE found an IP address* 
+
+If you are having trouble finding your pi, try rebooting and waiting for it to pop up.
+
+If the wireless function doesn't seem to work on your RP and you aren't seeing a wireless connection after multiple reboots, try using an ethernet cable to connect your pi to your router.
+
+(For a cable connection to work you need to enable ethernet on your RP. Turn off your pi, and remove the SD card. 
+
+Insert your SD card back into your main computer, and open up the system files. 
+
+From here you need to find a file labeled "network-config" 
+
+Use any text editor (i'm using VS-Code) and open the network-config text file
+
+You should see your wireless configuration (SSID and the password you set up)
+
+Something like this: 
+```
+version: 2
+wifis:
+  wlan0:
+    dhcp4: true
+    optional: true
+    access-points:
+      "home network":
+        password: "123456789"
+
+```
+Above this (if there isn't an ethernet configuration enabled, add one) 
+
+It should look something like this:
+
+```
+version: 2
+ethernets:
+	eth0:
+		dhcp4: true
+		optional: true
+wifis:
+  wlan0:
+    dhcp4: true
+    optional: true
+    access-points:
+      "home network":
+        password: "123456789"
+
+```
+
+Save this file and put your microSD card back into your Pi. 
+-
+
+
+After viewing your router's connected devices, you should be able to find a device named "ubuntu" or an unfamiliar device.
+
+Once you have identified the IP address that has been assigned to your Pi, head over to an SSH client of your choice.
+
+I've heard good things about "PuttySSH" but I am choosing to do this on my laptop that is running ParrotOS via terminal. 
+
+The default username and password for ubuntu is "ubuntu" 
+
+To SSH into your Pi, you type "ssh ubuntu@<ipaddress>" 
+
+ipaddress should = whatever IP you found in your router. 
+
+Once you are signed in you should be prompted to change your Pi's password if you didn't set one earlier.
+
+After setting a password, enter the following commands to do a few updates to your system. 
+
+"Sudo apt update -y" 
+"Sudo apt upgrade -y"
+
+These two commands will update your system, the "-y" flag automatically says "yes" to all update confirmations to speed your update process up a bit. 
+
+Now we need to install Pi-Hole
+
+Enter the following command from this site into your terminal 
+
+https://docs.pi-hole.net/main/basic-install/ 
+
+"curl -sSL https://install.pi-hole.net | bash"
+
+If you are not comfortable with curling into bash, you can also clone a github repository and run it. This is available in the link above.
+
+Once your Pi-Hole install shows up you will be prompted with a few messages. 
+
+Upon reaching the question for an upstream DNS provider pick "OpenDNS" 
+note: this will be changed later 
+
+You should set a static address for your Pi, block IPv6 addresses (optional but recommended), log queries (Depends on your threat model, I chose to log but in anonymous mode).
+
+After selecting through to the end you should see an "installation complete" page with your web interface link, IPv4/6 address, and a login password.
+
+If you want to change your web interface login password you can do so with this command: "pihole -a -p <password>"  
+
+Now try to log into the web interface to see if everything is working properly. 
+
+Once you are done with this, we need to setup our recursive DNS server using unbound. 
+
+Here is a full written tutorial for unbound: https://docs.pi-hole.net/guides/dns/unbound/
+
+First, install unbound ("sudo apt install unbound") 
+
+After unbound is installed, we need to write our own configuration (or use the one on the pi-hole website)
+
+First we need to create our configuration file, we can do this with:
+"sudo nano /etc/unbound/unbound.conf.d/pi-hole.conf"
+
+This will create the configuration file, now we just need to copy the config into nano  from the link above.
+
+After this is pasted, hit ctrl x (exit), y (save), enter (to confirm the file name)
+
+Part of the configuration file was a port change in unbound (from 53 to 5335) 
+
+Since Pi-hole is already listening on port 53, we have to change our second service (unbound) to operate on a different port (because you can't listen on the same port with two different services) 
+
+The way your network is setup is that Pi-hole acts as your new DNS server (on port 53). Pi-hole will forward your requests to unbound (port 5335) as a standard DNS request on a secondary port. From there, unbound queries the authoritative DNS server you were searching for and feeds this back to Pi-hole. Pi-hole then strips the advertisement IP addresses out, and feeds you back your request with a clean IP address. 
+
+Let's go back to our Pi-hole admin page, and set up our DNS configuration. 
+
+Click settings and proceed to the DNS tab. Uncheck the OpenDNS config and check "custom 1 (IPv4)" 
+
+Add "127.0.0.1#5335" under custom 1, and click save at the bottom. 
+
+Now Pi-hole is forwarding requests to unbound, and you are finished.
+
+Since your raspberry pi is acting as a DNS server you can now point your pc/router(s) to your Pi-Hole and have it block advertisements for you. 
