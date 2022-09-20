@@ -32,7 +32,7 @@ Right click in the white space and create a new text file. Label this file "ssh"
 
 Now you are ready to boot up
 
-Take your SD card out and insert it into your RaspberryPi and boot it up.
+Take your SD card out and insert it into your RaspberryPi and boot it up. 
 
 What we need to do now is find your RP's IP address so we can remote into it through secure shell (SSH).
 
